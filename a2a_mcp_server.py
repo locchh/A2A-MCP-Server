@@ -480,38 +480,41 @@ async def send_message(
             "task_id": task_id,
         }
         
-        # Add any available fields from the result
-        if hasattr(result, "sessionId"):
-            response["session_id"] = result.sessionId
+        # result is SendTaskResponse — the actual Task is in result.result
+        task = result.result if hasattr(result, "result") and result.result else None
+
+        # Add any available fields from the task
+        if task and hasattr(task, "sessionId"):
+            response["session_id"] = task.sessionId
         else:
             response["session_id"] = None
-            
+
         # Try to get the state
         try:
-            if hasattr(result, "status") and hasattr(result.status, "state"):
-                response["state"] = result.status.state
+            if task and hasattr(task, "status") and hasattr(task.status, "state"):
+                response["state"] = task.status.state
             else:
                 response["state"] = "unknown"
         except Exception as e:
             response["state"] = f"error_getting_state: {str(e)}"
-            
+
         # Try to extract response message
         try:
-            if hasattr(result, "status") and hasattr(result.status, "message") and result.status.message:
+            if task and hasattr(task, "status") and hasattr(task.status, "message") and task.status.message:
                 response_text = ""
-                for part in result.status.message.parts:
+                for part in task.status.message.parts:
                     if part.type == "text":
                         response_text += part.text
                 if response_text:
                     response["message"] = response_text
         except Exception as e:
             response["message_error"] = f"Error extracting message: {str(e)}"
-        
+
         # Try to get artifacts
         try:
-            if hasattr(result, "artifacts") and result.artifacts:
+            if task and hasattr(task, "artifacts") and task.artifacts:
                 artifacts_data = []
-                for artifact in result.artifacts:
+                for artifact in task.artifacts:
                     artifact_data = {
                         "name": artifact.name if hasattr(artifact, "name") else "unnamed_artifact",
                         "contents": [],
